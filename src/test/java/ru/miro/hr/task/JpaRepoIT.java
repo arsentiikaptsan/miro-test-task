@@ -8,7 +8,8 @@ import org.springframework.transaction.support.TransactionTemplate;
 
 import javax.persistence.EntityManager;
 
-@SpringBootTest(webEnvironment = SpringBootTest.WebEnvironment.RANDOM_PORT, properties = "spring.profiles.active=jpa_repo")
+@SpringBootTest(webEnvironment = SpringBootTest.WebEnvironment.RANDOM_PORT,
+        properties = {"spring.profiles.active=jpa_repo", "transaction.timeout=100"})
 class JpaRepoIT extends IT {
 
     @Autowired

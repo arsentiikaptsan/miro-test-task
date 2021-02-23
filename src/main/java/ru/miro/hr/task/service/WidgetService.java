@@ -7,15 +7,15 @@ import ru.miro.hr.task.rest.dto.WidgetDto;
 
 public interface WidgetService {
 
-    Mono<Widget> getWidget(int id);
+    Mono<? extends Widget> getWidget(int id);
 
-    Flux<Widget> getWidgets(int from, int size);
+    Flux<? extends Widget> getWidgets(int from, int size);
 
     Mono<Integer> getWidgetsCount();
 
-    Mono<Widget> createWidget(WidgetDto dto);
+    Mono<? extends Widget> createWidget(WidgetDto dto);
 
-    Mono<Widget> updateWidget(WidgetDto dto);
+    Mono<? extends Widget> updateWidget(WidgetDto dto);
 
-    Mono deleteWidget(int id);
+    Mono<Void> deleteWidget(int id);
 }

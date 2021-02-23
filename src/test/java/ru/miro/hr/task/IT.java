@@ -213,6 +213,20 @@ public abstract class IT {
                 .expectStatus().isNotFound();
     }
 
+    @Test
+    public void testDeleteRequestSentTwice() {
+        createWidget();
+        int id = createWidget().getId();
+
+        deleteWidget(id);
+        assertThat(countWidgets()).isEqualTo(1);
+        checkNoWidgetExistWithId(id);
+
+        client.delete().uri("/widget/{id}", id)
+                .exchange()
+                .expectStatus().isNotFound();
+    }
+
     @SuppressWarnings("ConstantConditions")
     private int countWidgets() {
         return client.get().uri("/widget_count")

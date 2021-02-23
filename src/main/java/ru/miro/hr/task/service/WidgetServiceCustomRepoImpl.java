@@ -6,35 +6,42 @@ import org.springframework.stereotype.Service;
 import reactor.core.publisher.Flux;
 import reactor.core.publisher.Mono;
 import reactor.core.scheduler.Schedulers;
+import reactor.retry.Retry;
 import ru.miro.hr.task.exception.ResourceNotFoundException;
+import ru.miro.hr.task.exception.TimeoutRuntimeException;
 import ru.miro.hr.task.model.Widget;
 import ru.miro.hr.task.repo.custom.CustomRepo;
 import ru.miro.hr.task.rest.dto.WidgetDto;
+
+import java.time.Duration;
+import java.util.Optional;
 
 @Service("widgetServiceCustomRepo")
 @ConditionalOnProperty(name = "spring.profiles.active", havingValue = "custom_repo")
 public class WidgetServiceCustomRepoImpl implements WidgetService {
 
     private final CustomRepo repo;
-    private final int retryNumber;
+    private final Retry retryPolicy;
 
     public WidgetServiceCustomRepoImpl(CustomRepo repo,
-                                       @Value("${custom-service.retry-number:3}") int retryNumber) {
+                                       @Value("${transaction.retry-number:3}") int retryNumber,
+                                       @Value("${transaction.retry-min-backoff:10}") int minBackoff,
+                                       @Value("${transaction.retry-max-backoff:1000}") int maxBackoff) {
         this.repo = repo;
-        this.retryNumber = retryNumber;
+        this.retryPolicy = Retry
+                .anyOf(TimeoutRuntimeException.class)
+                .retryMax(retryNumber)
+                .exponentialBackoff(Duration.ofMillis(minBackoff), Duration.ofMillis(maxBackoff));
     }
 
     @Override
-    public Mono<Widget> getWidget(int id) {
-        var result = repo.getWidgetById(id);
-        if (result == null) {
-            return Mono.error(ResourceNotFoundException::new);
-        }
-        return Mono.just(result);
+    public Mono<? extends Widget> getWidget(int id) {
+        return Mono.fromCallable(() -> Optional.ofNullable(repo.getWidgetById(id))
+                .orElseThrow(ResourceNotFoundException::new));
     }
 
     @Override
-    public Flux<Widget> getWidgets(int from, int size) {
+    public Flux<? extends Widget> getWidgets(int from, int size) {
         return repo.getWidgetsOrderByZAscAndStartingAtAndLimitBy(from, size);
     }
 
@@ -44,7 +51,7 @@ public class WidgetServiceCustomRepoImpl implements WidgetService {
     }
 
     @Override
-    public Mono<Widget> createWidget(WidgetDto dto) {
+    public Mono<? extends Widget> createWidget(WidgetDto dto) {
         Mono<Widget> result;
         if (dto.getZ() != null) {
             result = Mono.fromCallable(() -> repo.createWidgetById(
@@ -64,7 +71,7 @@ public class WidgetServiceCustomRepoImpl implements WidgetService {
     }
 
     @Override
-    public Mono<Widget> updateWidget(WidgetDto dto) {
+    public Mono<? extends Widget> updateWidget(WidgetDto dto) {
         Mono<Widget> result;
         if (dto.getZ() != null) {
             result = Mono.fromCallable(() -> repo.updateWidgetById(
@@ -83,14 +90,14 @@ public class WidgetServiceCustomRepoImpl implements WidgetService {
                     dto.getWidth()));
         }
         return result
-                .retry(retryNumber)
+                .retryWhen(reactor.util.retry.Retry.withThrowable(retryPolicy))
                 .subscribeOn(Schedulers.boundedElastic());
     }
 
     @Override
-    public Mono deleteWidget(int id) {
-        return Mono.fromRunnable(() -> repo.deleteWidgetById(id))
-                .retry(retryNumber)
+    public Mono<Void> deleteWidget(int id) {
+        return Mono.<Void>fromRunnable(() -> repo.deleteWidgetById(id))
+                .retryWhen(reactor.util.retry.Retry.withThrowable(retryPolicy))
                 .subscribeOn(Schedulers.boundedElastic());
     }
 }

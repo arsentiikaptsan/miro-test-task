@@ -9,6 +9,7 @@ import org.springframework.scheduling.annotation.Scheduled;
 import org.springframework.stereotype.Component;
 import reactor.core.publisher.Flux;
 import ru.miro.hr.task.exception.ResourceNotFoundException;
+import ru.miro.hr.task.exception.TimeoutRuntimeException;
 import ru.miro.hr.task.model.Widget;
 
 import java.util.List;
@@ -64,7 +65,7 @@ public class CustomRepo {
     private final long timeout;
 
     public CustomRepo(@Value("${custom-repo.initial-capacity:1000}") int initialCapacity,
-                      @Value("${custom-repo.timeout:1000}") long timeout) {
+                      @Value("${transaction.timeout:1000}") long timeout) {
         if (timeout <= 0) {
             throw new IllegalArgumentException("Timeout must be positive");
         }
@@ -104,18 +105,20 @@ public class CustomRepo {
         });
     }
 
-    public Flux<Widget> getWidgetsOrderByZAscAndStartingAtAndLimitBy(int from, int size) {
-        return executeInGlobalLockSection(() -> {
-            // we need records that are created before or equal to serial and "deleted" after serial
-            int serial = transactionLog.getLatestSerial();
-            runningReadsSerials.add(serial);
+    public Flux<? extends Widget> getWidgetsOrderByZAscAndStartingAtAndLimitBy(int from, int size) {
+        globalLock.readLock().lock();
 
-            return Flux.fromStream(widgetByZ.tailMap(new UniqueKey(from, Integer.MIN_VALUE)).values().stream()
-                    .filter(record -> recordStatus(record, serial) == RecordStatus.ACTIVE)
-                    .limit(size))
-                    .doFinally(signalType -> runningReadsSerials.remove(serial))
-                    .map(w -> w);
-        });
+        // we need records that are created before or equal to serial and "deleted" after serial
+        int serial = transactionLog.getLatestSerial();
+        runningReadsSerials.add(serial);
+
+        return Flux.fromStream(widgetByZ.tailMap(new UniqueKey(from, Integer.MIN_VALUE)).values().stream()
+                .filter(record -> recordStatus(record, serial) == RecordStatus.ACTIVE)
+                .limit(size))
+                .doFinally(signalType -> {
+                    runningReadsSerials.remove(serial);
+                    globalLock.readLock().unlock();
+                });
     }
 
     @SuppressWarnings("ConstantConditions")
@@ -154,6 +157,7 @@ public class CustomRepo {
             try {
                 var record = Optional.ofNullable(widgetById.get(id))
                         .flatMap(deque -> deque.isEmpty() ? Optional.empty() : Optional.of(deque.getLast()))
+                        .filter(r -> recordStatus(r, Integer.MAX_VALUE) == RecordStatus.ACTIVE)
                         .orElseThrow(ResourceNotFoundException::new);
 
                 logicalWriteLocks.lockIndividualZWithTimeout(timeout, record.getZ());
@@ -270,6 +274,7 @@ public class CustomRepo {
             logicalWriteLocks.lockIndividualId(id);
             var oldRecord = Optional.ofNullable(widgetById.get(id))
                     .flatMap(deque -> deque.isEmpty() ? Optional.empty() : Optional.of(deque.getLast()))
+                    .filter(r -> recordStatus(r, Integer.MAX_VALUE) == RecordStatus.ACTIVE)
                     .orElseThrow(() -> {
                         logicalWriteLocks.releaseIndividualId(id);
                         return new ResourceNotFoundException("Widget.id=" + id);
@@ -357,6 +362,7 @@ public class CustomRepo {
             logicalWriteLocks.lockIndividualId(id);
             var oldRecord = Optional.ofNullable(widgetById.get(id))
                     .flatMap(deque -> deque.isEmpty() ? Optional.empty() : Optional.of(deque.getLast()))
+                    .filter(r -> recordStatus(r, Integer.MAX_VALUE) == RecordStatus.ACTIVE)
                     .orElseThrow(() -> {
                         logicalWriteLocks.releaseIndividualId(id);
                         return new ResourceNotFoundException("Widget.id=" + id);
@@ -474,7 +480,7 @@ public class CustomRepo {
             return task.call();
         } catch (TimeoutException e) {
             log.debug("Got timeout");
-            throw new RuntimeException("Timeout, retry!");
+            throw new TimeoutRuntimeException(e);
         } catch (InterruptedException e) {
             log.info("Got interrupted, exiting");
             return null;

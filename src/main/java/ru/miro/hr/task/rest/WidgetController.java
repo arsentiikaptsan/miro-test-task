@@ -3,7 +3,6 @@ package ru.miro.hr.task.rest;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.http.HttpStatus;
-import org.springframework.http.server.reactive.ServerHttpResponse;
 import org.springframework.web.bind.annotation.*;
 import reactor.core.publisher.Flux;
 import reactor.core.publisher.Mono;
@@ -33,7 +32,7 @@ public class WidgetController {
     }
 
     @GetMapping(value = "/widget/{id}")
-    Mono<Widget> getWidget(@PathVariable("id") int id) {
+    Mono<? extends Widget> getWidget(@PathVariable("id") int id) {
         return service.getWidget(id);
     }
 
@@ -44,11 +43,10 @@ public class WidgetController {
      * let's say, 10. Then to get the next page we set: {from=11,page=10}.
      */
     @GetMapping("/widget")
-    Flux<Widget> getWidgets(@RequestParam(name = "from", defaultValue = MIN_INT_STRING) int from,
-                            @RequestParam(name = "size", defaultValue = "10") int size,
-                            ServerHttpResponse response) {
+    Flux<? extends Widget> getWidgets(@RequestParam(name = "from", defaultValue = MIN_INT_STRING) int from,
+                                      @RequestParam(name = "size", defaultValue = "10") int size) {
         if (size <= 0 || size > 500) {
-            throw new BadRequestException();
+            throw new BadRequestException("Size must be in (0, 500]");
         }
         return service.getWidgets(from, size);
     }
@@ -71,22 +69,22 @@ public class WidgetController {
      */
     @PostMapping("/widget")
     @ResponseStatus(HttpStatus.CREATED)
-    Mono<Widget> createWidget(@RequestParam(name = "tid") String tid,
-                              @RequestBody WidgetDto dto) {
+    Mono<? extends Widget> createWidget(@RequestParam(name = "tid") String tid,
+                                        @RequestBody WidgetDto dto) {
         if (dto.getId() != null || !dto.isValid()) {
-            throw new BadRequestException();
+            throw new BadRequestException("Provide valid dto");
         }
 
         if (!processedTId.add(tid)) {
-            throw new DublicateException();
+            throw new DublicateException("Already processed request with tid=" + tid);
         }
 
         return service.createWidget(dto);
     }
 
     @PutMapping("/widget/{id}")
-    Mono<Widget> updateWidget(@PathVariable(name = "id") int id,
-                              @RequestBody WidgetDto dto) {
+    Mono<? extends Widget> updateWidget(@PathVariable(name = "id") int id,
+                                        @RequestBody WidgetDto dto) {
         if (!dto.isValid()) {
             throw new BadRequestException();
         }
@@ -96,7 +94,7 @@ public class WidgetController {
     }
 
     @DeleteMapping("/widget/{id}")
-    Mono deleteWidget(@PathVariable(name = "id") int id) {
+    Mono<Void> deleteWidget(@PathVariable(name = "id") int id) {
         return service.deleteWidget(id);
     }
 }
