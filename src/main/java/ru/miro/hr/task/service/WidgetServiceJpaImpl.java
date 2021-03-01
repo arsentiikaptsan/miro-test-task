@@ -4,6 +4,7 @@ import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
+import org.springframework.dao.CannotAcquireLockException;
 import org.springframework.dao.QueryTimeoutException;
 import org.springframework.lang.NonNull;
 import org.springframework.stereotype.Service;
@@ -47,7 +48,11 @@ public class WidgetServiceJpaImpl implements WidgetService {
         }
         this.repo = repo;
         this.retryPolicy = Retry
-                .anyOf(TransactionTimedOutException.class, QueryTimeoutException.class, LockTimeoutException.class, PessimisticLockException.class)
+                .anyOf(TransactionTimedOutException.class,
+                        QueryTimeoutException.class,
+                        LockTimeoutException.class,
+                        PessimisticLockException.class,
+                        CannotAcquireLockException.class)
                 .retryMax(retryNumber)
                 .exponentialBackoff(Duration.ofMillis(minBackoff), Duration.ofMillis(maxBackoff));
         this.transactionTemplate = new TransactionTemplate(transactionManager);

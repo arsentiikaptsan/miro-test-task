@@ -1,5 +1,6 @@
 package ru.miro.hr.task.rest;
 
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.http.HttpStatus;
@@ -16,6 +17,7 @@ import java.util.Set;
 import java.util.concurrent.ConcurrentHashMap;
 
 @RestController
+@Slf4j
 public class WidgetController {
 
     private final static String MIN_INT_STRING = "-2147483648";
@@ -72,10 +74,12 @@ public class WidgetController {
     Mono<? extends Widget> createWidget(@RequestParam(name = "tid") String tid,
                                         @RequestBody WidgetDto dto) {
         if (dto.getId() != null || !dto.isValid()) {
+            log.debug("Bad request create widget" + dto);
             throw new BadRequestException("Provide valid dto");
         }
 
         if (!processedTId.add(tid)) {
+            log.debug("Duplicate");
             throw new DublicateException("Already processed request with tid=" + tid);
         }
 
@@ -86,6 +90,7 @@ public class WidgetController {
     Mono<? extends Widget> updateWidget(@PathVariable(name = "id") int id,
                                         @RequestBody WidgetDto dto) {
         if (!dto.isValid()) {
+            log.debug("Bad request update widget" + dto);
             throw new BadRequestException();
         }
 
