@@ -18,15 +18,16 @@ public class TransactionLog {
 
     int commit(int transactionId) {
         lock.writeLock().lock();
+        try {
+            if (transactionSerials.containsKey(transactionId)) {
+                throw new IllegalStateException("Already committed");
+            }
+            transactionSerials.put(transactionId, serial);
 
-        if (transactionSerials.containsKey(transactionId)) {
-            throw new IllegalStateException("Already committed");
+            return serial++;
+        } finally {
+            lock.writeLock().unlock();
         }
-        transactionSerials.put(transactionId, serial);
-        int result = serial++;
-
-        lock.writeLock().unlock();
-        return result;
     }
 
     int getLatestSerial() {

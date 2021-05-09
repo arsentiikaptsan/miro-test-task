@@ -105,7 +105,7 @@ public class CustomRepo {
         });
     }
 
-    public Flux<? extends Widget> getWidgetsOrderByZAscAndStartingAtAndLimitBy(int from, int size) {
+    public Flux<Widget> getWidgetsOrderByZAscAndStartingAtAndLimitBy(int from, int size) {
         globalLock.readLock().lock();
 
         // we need records that are created before or equal to serial and "deleted" after serial
@@ -115,6 +115,7 @@ public class CustomRepo {
         return Flux.fromStream(widgetByZ.tailMap(new UniqueKey(from, Integer.MIN_VALUE)).values().stream()
                 .filter(record -> recordStatus(record, serial) == RecordStatus.ACTIVE)
                 .limit(size))
+                .cast(Widget.class)
                 .doFinally(signalType -> {
                     runningReadsSerials.remove(serial);
                     globalLock.readLock().unlock();

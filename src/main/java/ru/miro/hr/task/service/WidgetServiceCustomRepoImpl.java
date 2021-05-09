@@ -35,13 +35,13 @@ public class WidgetServiceCustomRepoImpl implements WidgetService {
     }
 
     @Override
-    public Mono<? extends Widget> getWidget(int id) {
+    public Mono<Widget> getWidget(int id) {
         return Mono.fromCallable(() -> Optional.ofNullable(repo.getWidgetById(id))
                 .orElseThrow(ResourceNotFoundException::new));
     }
 
     @Override
-    public Flux<? extends Widget> getWidgets(int from, int size) {
+    public Flux<Widget> getWidgets(int from, int size) {
         return repo.getWidgetsOrderByZAscAndStartingAtAndLimitBy(from, size);
     }
 
@@ -51,7 +51,7 @@ public class WidgetServiceCustomRepoImpl implements WidgetService {
     }
 
     @Override
-    public Mono<? extends Widget> createWidget(WidgetDto dto) {
+    public Mono<Widget> createWidget(WidgetDto dto) {
         Mono<Widget> result;
         if (dto.getZ() != null) {
             result = Mono.fromCallable(() -> repo.createWidgetById(
@@ -71,7 +71,7 @@ public class WidgetServiceCustomRepoImpl implements WidgetService {
     }
 
     @Override
-    public Mono<? extends Widget> updateWidget(WidgetDto dto) {
+    public Mono<Widget> updateWidget(WidgetDto dto) {
         Mono<Widget> result;
         if (dto.getZ() != null) {
             result = Mono.fromCallable(() -> repo.updateWidgetById(

@@ -34,8 +34,8 @@ public class WidgetController {
     }
 
     @GetMapping(value = "/widget/{id}")
-    Mono<? extends Widget> getWidget(@PathVariable("id") int id) {
-        return service.getWidget(id);
+    Mono<Widget> getWidget(@PathVariable("id") int id) {
+        return service.getWidget(id).cast(Widget.class);
     }
 
     /**
@@ -45,12 +45,12 @@ public class WidgetController {
      * let's say, 10. Then to get the next page we set: {from=11,page=10}.
      */
     @GetMapping("/widget")
-    Flux<? extends Widget> getWidgets(@RequestParam(name = "from", defaultValue = MIN_INT_STRING) int from,
-                                      @RequestParam(name = "size", defaultValue = "10") int size) {
+    Flux<Widget> getWidgets(@RequestParam(name = "from", defaultValue = MIN_INT_STRING) int from,
+                            @RequestParam(name = "size", defaultValue = "10") int size) {
         if (size <= 0 || size > 500) {
             throw new BadRequestException("Size must be in (0, 500]");
         }
-        return service.getWidgets(from, size);
+        return service.getWidgets(from, size).cast(Widget.class);
     }
 
     /**
@@ -71,8 +71,8 @@ public class WidgetController {
      */
     @PostMapping("/widget")
     @ResponseStatus(HttpStatus.CREATED)
-    Mono<? extends Widget> createWidget(@RequestParam(name = "tid") String tid,
-                                        @RequestBody WidgetDto dto) {
+    Mono<Widget> createWidget(@RequestParam(name = "tid") String tid,
+                              @RequestBody WidgetDto dto) {
         if (dto.getId() != null || !dto.isValid()) {
             log.debug("Bad request create widget" + dto);
             throw new BadRequestException("Provide valid dto");
@@ -83,19 +83,19 @@ public class WidgetController {
             throw new DublicateException("Already processed request with tid=" + tid);
         }
 
-        return service.createWidget(dto);
+        return service.createWidget(dto).cast(Widget.class);
     }
 
     @PutMapping("/widget/{id}")
-    Mono<? extends Widget> updateWidget(@PathVariable(name = "id") int id,
-                                        @RequestBody WidgetDto dto) {
+    Mono<Widget> updateWidget(@PathVariable(name = "id") int id,
+                              @RequestBody WidgetDto dto) {
         if (!dto.isValid()) {
             log.debug("Bad request update widget" + dto);
             throw new BadRequestException();
         }
 
         dto.setId(id);
-        return service.updateWidget(dto);
+        return service.updateWidget(dto).cast(Widget.class);
     }
 
     @DeleteMapping("/widget/{id}")

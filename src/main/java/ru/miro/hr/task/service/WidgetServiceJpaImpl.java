@@ -17,7 +17,6 @@ import reactor.core.publisher.Mono;
 import reactor.core.scheduler.Schedulers;
 import reactor.retry.Retry;
 import ru.miro.hr.task.exception.ResourceNotFoundException;
-import ru.miro.hr.task.model.Widget;
 import ru.miro.hr.task.repo.jpa.JpaRepo;
 import ru.miro.hr.task.repo.jpa.WidgetJpaImpl;
 import ru.miro.hr.task.rest.dto.WidgetDto;
@@ -65,7 +64,7 @@ public class WidgetServiceJpaImpl implements WidgetService {
     }
 
     @Override
-    public Mono<? extends Widget> getWidget(int id) {
+    public Mono<WidgetJpaImpl> getWidget(int id) {
         return Mono.fromCallable(() ->
                 readonlyTransactionTemplate.execute(status ->
                         repo.findById(id).orElseThrow(ResourceNotFoundException::new)))
@@ -74,7 +73,7 @@ public class WidgetServiceJpaImpl implements WidgetService {
     }
 
     @Override
-    public Flux<? extends Widget> getWidgets(int from, int size) {
+    public Flux<WidgetJpaImpl> getWidgets(int from, int size) {
         return Flux.fromStream(
                 readonlyTransactionTemplate.execute(status -> repo.findPageOrderedByZ(from, size))
                         .stream())
@@ -91,7 +90,7 @@ public class WidgetServiceJpaImpl implements WidgetService {
     }
 
     @Override
-    public Mono<? extends Widget> createWidget(@NonNull WidgetDto dto) {
+    public Mono<WidgetJpaImpl> createWidget(@NonNull WidgetDto dto) {
         return Mono.fromCallable(() -> transactionTemplate.execute(status -> {
             var newWidget = new WidgetJpaImpl(dto.getX(), dto.getY(), 0, dto.getWidth(), dto.getHeight());
             if (dto.getZ() == null) {
@@ -111,7 +110,7 @@ public class WidgetServiceJpaImpl implements WidgetService {
     }
 
     @Override
-    public Mono<? extends Widget> updateWidget(@NonNull WidgetDto dto) {
+    public Mono<WidgetJpaImpl> updateWidget(@NonNull WidgetDto dto) {
         return Mono.fromCallable(() -> transactionTemplate.execute(status -> {
             var widget = repo.findById(dto.getId()).orElseThrow(ResourceNotFoundException::new);
             widget.setX(dto.getX());
